@@ -109,6 +109,70 @@ ol.log { margin: 8px 0 0; padding-left: 22px; max-height: 260px; overflow-y: aut
 .campo input:focus { outline: 3px solid var(--focus); outline-offset: 2px; }
 .asientos { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
 #t-online { margin-top: 18px; }
+/* ---------------- Capa visual (solo para los que ven: todo es aria-hidden) ---------------- */
+.cartas { display: flex; justify-content: center; gap: 10px; }
+.cartas .carta { flex: 0 1 118px; min-width: 0; }
+.carta { background: none; border: 0; padding: 0; width: 100%; max-width: 118px; touch-action: pan-x; transition: transform .15s; }
+.carta .dib { display: block; width: 100%; height: 100%; border-radius: 9px; transition: transform .15s, box-shadow .15s; }
+.carta .dib svg { display: block; width: 100%; height: 100%; filter: drop-shadow(0 3px 4px rgba(0,0,0,.28)); }
+.carta.sel { border: 0; }
+.carta.sel .dib { transform: translateY(-8px); box-shadow: 0 0 0 3px var(--accent); }
+.carta.arrastra { transition: none; }
+.carta.vacia { border: 2px dashed var(--line); border-radius: 12px; }
+.carta.reparte { animation: reparto .45s cubic-bezier(.2,.8,.3,1) both; }
+@keyframes reparto { from { transform: translateY(-160px) rotate(-10deg) scale(.7); opacity: 0; } }
+
+.pano { position: relative; height: 300px; border-radius: 14px; overflow: hidden;
+  background: radial-gradient(ellipse at 50% 42%, #23855a 0%, #176a42 45%, #0f4e30 100%);
+  box-shadow: inset 0 0 0 3px rgba(0,0,0,.18), inset 0 8px 28px rgba(0,0,0,.35); }
+.pano.de4 { height: 350px; }
+.pano .capa, .pano .globos { position: absolute; inset: 0; }
+.pano .globos { pointer-events: none; }
+.asiento { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 4px; color: #f3faf5; font-size: 13px; font-weight: 700; }
+.asiento.arriba { top: 8px; left: 50%; transform: translateX(-50%); }
+.asiento.abajo { bottom: 8px; left: 50%; transform: translateX(-50%); }
+.asiento.izq { left: 6px; top: 50%; transform: translateY(-50%); }
+.asiento.der { right: 6px; top: 50%; transform: translateY(-50%); }
+.asiento .nombre { background: rgba(0,0,0,.3); padding: 2px 9px; border-radius: 999px; white-space: nowrap; max-width: 110px; overflow: hidden; text-overflow: ellipsis; transition: background .2s, color .2s; }
+.asiento.turno .nombre { background: #ffbf47; color: #102017; box-shadow: 0 0 0 4px rgba(255,191,71,.3); }
+.dorsos { display: flex; min-height: 31px; }
+.dorsos svg { width: 22px; height: 31px; margin-left: -9px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.45)); }
+.dorsos svg:first-child { margin-left: 0; }
+.dorsos.reparte svg { animation: repartoChico .4s both; }
+.dorsos.reparte svg:nth-child(2) { animation-delay: .09s; } .dorsos.reparte svg:nth-child(3) { animation-delay: .18s; }
+@keyframes repartoChico { from { transform: translateY(60px) scale(.6); opacity: 0; } }
+.pila { position: absolute; display: flex; }
+.pila .pc svg { display: block; width: 44px; height: 62px; filter: drop-shadow(0 2px 3px rgba(0,0,0,.45)); }
+.pila.arriba { top: 68px; left: 50%; transform: translateX(-50%); }
+.pila.abajo { bottom: 38px; left: 50%; transform: translateX(-50%); }
+.pila.izq { left: 62px; top: 50%; transform: translateY(-50%); flex-direction: column; }
+.pila.der { right: 62px; top: 50%; transform: translateY(-50%); flex-direction: column; }
+.pila.arriba .pc + .pc, .pila.abajo .pc + .pc { margin-left: -12px; }
+.pila.izq .pc + .pc, .pila.der .pc + .pc { margin-top: -40px; }
+.pc.perdio svg { opacity: .5; filter: grayscale(.35) drop-shadow(0 2px 3px rgba(0,0,0,.45)); }
+.pc.entra.abajo { animation: desdeAbajo .38s cubic-bezier(.2,.8,.3,1); }
+.pc.entra.arriba { animation: desdeArriba .38s cubic-bezier(.2,.8,.3,1); }
+.pc.entra.izq { animation: desdeIzq .38s cubic-bezier(.2,.8,.3,1); }
+.pc.entra.der { animation: desdeDer .38s cubic-bezier(.2,.8,.3,1); }
+@keyframes desdeAbajo { from { transform: translateY(150px) scale(1.4); opacity: .2; } }
+@keyframes desdeArriba { from { transform: translateY(-70px) scale(.5); opacity: 0; } }
+@keyframes desdeIzq { from { transform: translateX(-60px) scale(.5); opacity: 0; } }
+@keyframes desdeDer { from { transform: translateX(60px) scale(.5); opacity: 0; } }
+.chip { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,.35); color: #ffd36b; font-weight: 700; font-size: 14px; padding: 3px 10px; border-radius: 999px; letter-spacing: .04em; text-transform: uppercase; }
+.pano.de4 .chip { top: 47%; }
+.globo { position: absolute; background: #fffdf6; color: #102017; font-weight: 700; font-size: 16px; padding: 6px 12px; border-radius: 14px; box-shadow: 0 4px 12px rgba(0,0,0,.35); white-space: nowrap; animation: globo 2.6s forwards; }
+.globo::after { content: ""; position: absolute; width: 10px; height: 10px; background: inherit; transform: rotate(45deg); }
+.globo.arriba { top: 68px; left: 50%; margin-left: -50px; } .globo.arriba::after { top: -4px; left: 20px; }
+.globo.abajo { bottom: 34px; left: 50%; margin-left: -40px; } .globo.abajo::after { bottom: -4px; left: 20px; }
+.globo.izq { top: 34%; left: 8px; } .globo.izq::after { top: -4px; left: 14px; }
+.globo.der { top: 34%; right: 8px; } .globo.der::after { top: -4px; right: 14px; }
+@keyframes globo { 0% { transform: scale(.5); opacity: 0; } 8% { transform: scale(1.08); opacity: 1; } 14% { transform: scale(1); } 82% { opacity: 1; } 100% { opacity: 0; } }
+.porotos { display: block; margin-top: 4px; color: var(--ink); min-height: 20px; }
+.porotos svg { display: block; height: 20px; width: auto; max-width: 100%; }
+@media (prefers-reduced-motion: reduce) {
+  .carta.reparte, .dorsos.reparte svg, .pc.entra, .globo { animation-duration: .01s !important; }
+  .globo { animation: globo 2.6s forwards !important; }
+}
 .chico { background: none; border: 0; color: var(--ink); text-decoration: underline; padding: 6px 0; font-size: 16px; }
 </style>
 
@@ -160,14 +224,15 @@ ol.log { margin: 8px 0 0; padding-left: 22px; max-height: 260px; overflow-y: aut
   <div id="juego" hidden>
     <div role="application" aria-label="Mesa de truco" style="display:flex;flex-direction:column;gap:18px">
       <section class="score" aria-label="Puntaje">
-        <div><b id="pts-nos">0</b><span>Nosotros</span></div>
-        <div><b id="pts-ellos">0</b><span>Ellos</span></div>
+        <div><b id="pts-nos">0</b><span>Nosotros</span><span class="porotos" id="poro-nos" aria-hidden="true"></span></div>
+        <div><b id="pts-ellos">0</b><span>Ellos</span><span class="porotos" id="poro-ellos" aria-hidden="true"></span></div>
       </section>
 
       <section class="mesa" aria-labelledby="t-mesa">
         <h2 id="t-mesa">Mesa</h2>
         <p class="estado" id="estado"></p>
-        <div class="jugadas" id="jugadas"></div>
+        <div class="pano" id="pano" aria-hidden="true"><div class="capa"></div><div class="globos"></div></div>
+        <div class="jugadas sr" id="jugadas"></div>
       </section>
 
       <section aria-labelledby="t-cartas">
@@ -374,15 +439,16 @@ function narrar(ev) {
       salgoYo = ev.jugador === YO;
       return "";
     }
-    case "canto": SON.canto(ev.canto); hablar(ev.canto, ev.jugador); return ev.jugador === YO ? (conVoz(ev.canto) ? "" : `Cantaste ${NOMBRE_CANTO[ev.canto]}.`) : `${quien(ev.jugador)}: ${NOMBRE_CANTO[ev.canto]}.`;
+    case "canto": globo(ev.jugador, "¡" + mayus(NOMBRE_CANTO[ev.canto]) + "!"); SON.canto(ev.canto); hablar(ev.canto, ev.jugador); return ev.jugador === YO ? (conVoz(ev.canto) ? "" : `Cantaste ${NOMBRE_CANTO[ev.canto]}.`) : `${quien(ev.jugador)}: ${NOMBRE_CANTO[ev.canto]}.`;
     case "respuesta": if (ev.nivel) return ""; // aceptó subiendo la apuesta: ya lo dice el canto ("quiero retruco")
-    (ev.quiero ? SON.quiero : SON.noQuiero)(); hablar(ev.quiero ? "quiero" : "no_quiero", ev.jugador); return ev.jugador === YO ? (conVoz(ev.quiero ? "quiero" : "no_quiero") ? "" : `Dijiste ${ev.quiero ? "quiero" : "no quiero"}.`) :`${quien(ev.jugador)}: ${ev.quiero ? "quiero" : "no quiero"}.`;
+    globo(ev.jugador, ev.quiero ? "¡Quiero!" : "No quiero"); (ev.quiero ? SON.quiero : SON.noQuiero)(); hablar(ev.quiero ? "quiero" : "no_quiero", ev.jugador); return ev.jugador === YO ? (conVoz(ev.quiero ? "quiero" : "no_quiero") ? "" : `Dijiste ${ev.quiero ? "quiero" : "no quiero"}.`) :`${quien(ev.jugador)}: ${ev.quiero ? "quiero" : "no quiero"}.`;
     case "envido": {
+      ev.tantos.forEach((x) => globo(x.jugador, String(x.tantos)));
       const t = ev.tantos.map((x) => `${quienMin(x.jugador)} ${x.tantos}`).join(", ");
       return `Envido: ${t}. ${ev.gano === NOS() ? "Lo ganamos." : "Lo ganan ellos."}`;
     }
-    case "flor": return `${ev.jugador === YO ? "Ganaste" : quien(ev.jugador) + " gana"} con flor de ${ev.tantos}.`;
-    case "mazo": SON.mazo(); hablar("mazo", ev.jugador); return ev.jugador === YO ? "Te fuiste al mazo." : `${quien(ev.jugador)} se va al mazo.`;
+    case "flor": globo(ev.jugador, "Flor de " + ev.tantos); return `${ev.jugador === YO ? "Ganaste" : quien(ev.jugador) + " gana"} con flor de ${ev.tantos}.`;
+    case "mazo": globo(ev.jugador, "Me voy al mazo"); SON.mazo(); hablar("mazo", ev.jugador); return ev.jugador === YO ? "Te fuiste al mazo." : `${quien(ev.jugador)} se va al mazo.`;
     case "puntos": return `${ev.equipo === NOS() ? "Sumamos" : "Ellos suman"} ${ev.puntos} ${ev.puntos === 1 ? "punto" : "puntos"}${ev.motivo === "envido" ? " de envido" : ev.motivo === "flor" ? " de flor" : ""}. Van ${ev.total[NOS()]} a ${ev.total[1 - NOS()]}.`;
     case "fin_ronda": (ev.equipo === NOS() ? SON.gano : SON.perdio)(); return "";
     case "fin_partida": musica(null); (ev.ganador === NOS() ? SON.ganoPartida : SON.perdioPartida)(); return "";
@@ -390,9 +456,108 @@ function narrar(ev) {
   return "";
 }
 
+// ------------------------------------------------------------ dibujo (solo para los que ven)
+// Todo lo que se dibuja acá es aria-hidden: el lector sigue leyendo lo mismo de siempre.
+const TINTA = { espada: "#1d4f91", basto: "#2f6b22", oro: "#a87400", copa: "#b3262a" };
+function simbolo(p) {
+  if (p === "oro") return '<circle r="7.6" fill="#f0c33c" stroke="#9a6b00" stroke-width="1.2"/><circle r="4.6" fill="none" stroke="#9a6b00" stroke-width=".9"/><circle r="1.7" fill="#9a6b00"/>';
+  if (p === "copa") return '<path d="M-7,-8 H7 C7,-1 3.4,1.2 1.3,2.2 V5.6 H4.2 V8.6 H-4.2 V5.6 H-1.3 V2.2 C-3.4,1.2 -7,-1 -7,-8 Z" fill="#c8313a" stroke="#7a1418" stroke-width=".9"/><ellipse cy="-8" rx="7" ry="1.6" fill="#f0c33c" stroke="#7a1418" stroke-width=".6"/>';
+  if (p === "espada") return '<path d="M0,-10.5 L1.8,-7.4 V4.6 H-1.8 V-7.4 Z" fill="#c9daf0" stroke="#1d4f91" stroke-width=".8"/><rect x="-5.2" y="4.4" width="10.4" height="2" rx=".8" fill="#1d4f91"/><rect x="-1" y="6.4" width="2" height="2.8" fill="#6b4220"/><circle cy="10" r="1.4" fill="#1d4f91"/>';
+  return '<path d="M-1.6,9.5 L-3.2,-6 C-3.8,-9.6 3.8,-9.6 3.2,-6 L1.6,9.5 Z" fill="#5f9a3e" stroke="#2c5a1f" stroke-width=".8"/><circle cx="-2.6" cy="-2" r="1.2" fill="#2c5a1f"/><circle cx="2.4" cy="1.4" r="1.1" fill="#2c5a1f"/><circle cx="-1.9" cy="5" r="1" fill="#2c5a1f"/>';
+}
+const PINTAS = {
+  1: [[25, 35]], 2: [[25, 21], [25, 49]], 3: [[25, 18], [25, 35], [25, 52]],
+  4: [[16, 21], [34, 21], [16, 49], [34, 49]], 5: [[16, 20], [34, 20], [25, 35], [16, 50], [34, 50]],
+  6: [[16, 19], [34, 19], [16, 35], [34, 35], [16, 51], [34, 51]], 7: [[14, 19], [36, 19], [25, 27], [14, 35], [36, 35], [14, 51], [36, 51]]
+};
+function figura(c) {
+  const t = TINTA[c.p];
+  const sombrero = c.n === 12
+    ? '<path d="M-6,-14 L-6,-20.5 L-3,-16.5 L0,-21.5 L3,-16.5 L6,-20.5 L6,-14 Z" fill="#f0c33c" stroke="#9a6b00" stroke-width=".7"/>'
+    : c.n === 11 ? '<rect x="-6.5" y="-15" width="13" height="2" rx="1" fill="' + t + '"/><path d="M-4.2,-15 L-3.6,-20.5 H3.6 L4.2,-15 Z" fill="' + t + '"/>'
+    : '<path d="M-6.2,-13 Q0,-20.5 6.2,-13 Z" fill="' + t + '"/><circle cx="4.5" cy="-17" r="1.3" fill="#f0c33c"/>';
+  const caballo = c.n === 11 ? '<path d="M-10,12 L-15,1 L-13,-4 L-9,-5.5 L-7.5,-2 L-10,0 L-8,10 Z" fill="#8a5a2b" stroke="#4a2c10" stroke-width=".7"/><circle cx="-12" cy="-1.6" r=".8" fill="#2a1a08"/>' : "";
+  return '<g transform="translate(25,37)">' + caballo +
+    '<path d="M-11,23 L-7,-4 Q0,-8.5 7,-4 L11,23 Z" fill="' + t + '" stroke="rgba(0,0,0,.35)" stroke-width=".7"/>' +
+    '<path d="M-3,-4.6 L0,6 L3,-4.6" fill="none" stroke="#f0c33c" stroke-width="1.1"/>' +
+    '<rect x="-7.8" y="7" width="15.6" height="2" fill="#f0c33c"/>' +
+    '<circle cy="-9.8" r="5.4" fill="#f2c9a2" stroke="#7a4a2a" stroke-width=".6"/>' +
+    '<circle cx="-1.9" cy="-10.4" r=".55" fill="#3a2410"/><circle cx="1.9" cy="-10.4" r=".55" fill="#3a2410"/>' +
+    (c.n === 12 ? '<path d="M-4,-7.4 Q0,-2.6 4,-7.4 Q0,-5.6 -4,-7.4 Z" fill="#8a5a2b"/>' : "") +
+    sombrero + '<g transform="translate(9.5,1) scale(.62)">' + simbolo(c.p) + "</g></g>";
+}
+function svgCarta(c) {
+  const t = TINTA[c.p];
+  let medio;
+  if (c.n >= 10) medio = figura(c);
+  else { const pos = PINTAS[c.n], e = c.n === 1 ? 1.9 : c.n <= 3 ? 1 : c.n <= 5 ? .82 : .7; medio = pos.map(([x, y]) => `<g transform="translate(${x},${y}) scale(${e})">${simbolo(c.p)}</g>`).join(""); }
+  const num = `font-family="Georgia,'Times New Roman',serif" font-size="9" font-weight="700" fill="${t}"`;
+  return `<svg viewBox="0 0 50 70" xmlns="http://www.w3.org/2000/svg" focusable="false"><rect x=".6" y=".6" width="48.8" height="68.8" rx="4.2" fill="#fffdf6" stroke="#bdb3a0" stroke-width=".8"/><rect x="3" y="3" width="44" height="64" rx="2.6" fill="none" stroke="${t}" stroke-width=".7"/><text x="5" y="11.5" ${num}>${c.n}</text><text x="5" y="11.5" ${num} transform="rotate(180 25 35)">${c.n}</text>${medio}</svg>`;
+}
+const DORSO = (() => {
+  let rombos = "";
+  for (let y = 9; y <= 62; y += 6) for (let x = 9 + ((y - 9) / 6 % 2) * 3; x <= 42; x += 6) rombos += `M${x},${y - 2}l2,2l-2,2l-2,-2z`;
+  return `<svg viewBox="0 0 50 70" xmlns="http://www.w3.org/2000/svg" focusable="false"><rect x=".6" y=".6" width="48.8" height="68.8" rx="4.2" fill="#8c1d24" stroke="#fffdf6" stroke-width="1.6"/><rect x="4" y="4" width="42" height="62" rx="2" fill="none" stroke="#f0c33c" stroke-width=".8"/><path d="${rombos}" fill="#b8434b"/><circle cx="25" cy="35" r="8.5" fill="#f0c33c"/><circle cx="25" cy="35" r="5.5" fill="#8c1d24"/><circle cx="25" cy="35" r="2" fill="#f0c33c"/></svg>`;
+})();
+// Porotos: grupos de 5 (cuadradito con la diagonal), como se anota en la mesa.
+function porotos(pts, total) {
+  const g = Math.max(Math.ceil(total / 5), 1), ancho = 22, out = [];
+  for (let i = 0; i < g; i++) {
+    const x = i * ancho + (total === 30 && i >= 3 ? 8 : 0) + 2, k = Math.max(0, Math.min(5, pts - i * 5));
+    const L = [`M${x},2 V18`, `M${x},2 H${x + 16}`, `M${x + 16},2 V18`, `M${x},18 H${x + 16}`, `M${x},18 L${x + 16},2`];
+    out.push(`<path d="${L.slice(0, k).join(" ")}" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" fill="none"/>`);
+  }
+  const sep = total === 30 ? `<path d="M${3 * ancho + 5},0 V20" stroke="currentColor" stroke-width="1" stroke-dasharray="2 2" opacity=".5"/>` : "";
+  return `<svg viewBox="0 0 ${g * ancho + (total === 30 ? 8 : 0) + 2} 20" xmlns="http://www.w3.org/2000/svg">${out.join("")}${sep}</svg>`;
+}
+// Dónde se sienta cada uno en la mesa dibujada: vos siempre abajo.
+function lugar(p) { const n = S.cfg.jugadores, rel = (p - YO + n) % n; return n === 2 ? (rel ? "arriba" : "abajo") : ["abajo", "der", "arriba", "izq"][rel]; }
+function nombreCorto(p) {
+  if (p === YO) return ONLINE ? S.nombres[p] : "Vos";
+  if (ONLINE) return S.nombres[p];
+  const n = S.cfg.jugadores, rel = (p - YO + n) % n;
+  return n === 2 ? "La compu" : rel === 2 ? "Compañero" : "Rival";
+}
+let vistoPano = { mano: -1, cuenta: {} };
+function pintarPano() {
+  const el = $("#pano"); if (!el || !S) return;
+  const n = S.cfg.jugadores, r = S.ronda, capa = el.querySelector(".capa");
+  el.classList.toggle("de4", n === 4);
+  const manoNueva = vistoPano.mano !== S.mano_n;
+  if (manoNueva) vistoPano = { mano: S.mano_n, cuenta: {} };
+  const turno = actua();
+  let html = "";
+  for (let p = 0; p < n; p++) {
+    const pos = lugar(p), js = r.jugadas[p] || [];
+    const quedan = Math.max(0, 3 - js.length);
+    html += `<div class="asiento ${pos}${turno === p ? " turno" : ""}">` +
+      (p === YO ? "" : `<div class="dorsos${manoNueva ? " reparte" : ""}">${DORSO.repeat(quedan)}</div>`) +
+      `<span class="nombre">${nombreCorto(p).replace(/[<&]/g, "")}</span></div>`;
+    const antes = vistoPano.cuenta[p] || 0;
+    html += `<div class="pila ${pos}">` + js.map((c, i) => {
+      const bz = r.bazas[i], perdio = bz && bz.gano !== -1 && bz.gano !== equipo(p);
+      const giro = ((p * 7 + i * 5) % 9) - 4;
+      return `<span class="pc${i >= antes ? " entra " + pos : ""}${perdio ? " perdio" : ""}"><span style="display:block;transform:rotate(${giro}deg)">${svgCarta(c)}</span></span>`;
+    }).join("") + "</div>";
+    vistoPano.cuenta[p] = js.length;
+  }
+  const nivel = r.truco.nivel;
+  if (nivel > 1) html += `<div class="chip">${{ 2: "Truco", 3: "Retruco", 4: "Vale cuatro" }[nivel]}</div>`;
+  capa.innerHTML = html;
+}
+function globo(p, texto) {
+  if (!S || !texto) return;
+  const g = document.createElement("div"); g.className = "globo " + lugar(p); g.textContent = texto;
+  const box = $("#pano .globos");
+  box.querySelectorAll(".globo." + lugar(p)).forEach((x) => x.remove());
+  box.appendChild(g); setTimeout(() => g.remove(), 2700);
+}
+
 // ------------------------------------------------------------ pantalla
 function pintar() {
   $("#pts-nos").textContent = S.puntos[NOS()]; $("#pts-ellos").textContent = S.puntos[1 - NOS()];
+  $("#poro-nos").innerHTML = porotos(S.puntos[NOS()], S.cfg.puntos); $("#poro-ellos").innerHTML = porotos(S.puntos[1 - NOS()], S.cfg.puntos);
+  pintarPano();
   const r = S.ronda;
   // mesa
   const bz = bazasDeLaMano();
@@ -484,8 +649,14 @@ function botonCarta(c, i) {
   const b = document.createElement("button");
   b.type = "button"; b.className = "carta " + c.p;
   b.setAttribute("aria-label", nombreCarta(c));
-  b.innerHTML = `<span class="n" aria-hidden="true">${c.n}</span><span class="p" aria-hidden="true">${c.p}</span>`;
-  b.addEventListener("click", () => { sel = i; tirar(); });
+  b.innerHTML = `<span class="dib" aria-hidden="true">${svgCarta(c)}</span>`;
+  // Tocar la carta la tira (con VoiceOver o TalkBack, doble toque). Sin lector, también se puede deslizar hacia arriba.
+  let y0 = null, deslizo = 0;
+  b.addEventListener("click", () => { if (Date.now() - deslizo < 700) return; sel = i; tirar(); });
+  b.addEventListener("touchstart", (e) => { if (e.touches.length === 1) { y0 = e.touches[0].clientY; b.classList.add("arrastra"); } }, { passive: true });
+  b.addEventListener("touchmove", (e) => { if (y0 == null) return; const dy = Math.min(0, e.touches[0].clientY - y0); b.style.transform = `translateY(${dy}px)`; if (dy < -6 && e.cancelable) e.preventDefault(); }, { passive: false });
+  const suelta = (e) => { if (y0 == null) return; const dy = (e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientY : y0) - y0; y0 = null; b.style.transform = ""; b.classList.remove("arrastra"); if (dy < -50) { deslizo = Date.now(); sel = i; tirar(); } };
+  b.addEventListener("touchend", suelta); b.addEventListener("touchcancel", () => { y0 = null; b.style.transform = ""; b.classList.remove("arrastra"); });
   b.addEventListener("focus", () => { if (sel !== i) { sel = i; marcar(); } });
   return b;
 }
@@ -504,6 +675,7 @@ function pintarCartas(mano) {
     const v = document.createElement("button"); v.type = "button"; v.className = "carta vacia"; v.setAttribute("aria-label", "Sin cartas");
     v.innerHTML = `<span class="p" aria-hidden="true">Sin cartas</span>`; nuevos = [v];
   } else nuevos = mano.map(botonCarta);
+  if (manoNueva && mano.length === 3) nuevos.forEach((b, i) => { b.classList.add("reparte"); b.style.animationDelay = (i * 90 + 150) + "ms"; });
   nuevos.forEach((b) => cont.appendChild(b));
   marcarEn(nuevos);
   // Primero el foco va a la carta nueva y recién después se borran las viejas.
