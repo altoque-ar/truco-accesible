@@ -1,0 +1,9 @@
+# Servidor del Truco Accesible en Render (plan gratis).
+services:
+  - type: web
+    name: truco-accesible
+    runtime: node
+    plan: free
+    buildCommand: "true"
+    startCommand: node servidor/servidor.js
+    healthCheckPath: /salud

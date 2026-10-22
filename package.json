@@ -1,0 +1,1 @@
+{"name":"truco-accesible","version":"0.2.0","type":"module","engines":{"node":">=18"},"scripts":{"start":"node servidor/servidor.js","test":"node --test test/motor.test.js test/online.test.js"}}
