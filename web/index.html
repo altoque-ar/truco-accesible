@@ -251,10 +251,8 @@ ol.log { margin: 8px 0 0; padding-left: 22px; max-height: 260px; overflow-y: aut
         <div id="menu-items" role="menu"></div>
       </div>
 
-      <details>
-        <summary>Lo que fue pasando</summary>
-        <ol class="log" id="log"></ol>
-      </details>
+      <!-- Sin historial visible: en el celular no se usaba y ocupaba lugar. Queda oculto solo para la tecla R. -->
+      <ol id="log" hidden></ol>
       <button class="chico" id="nueva" type="button">Abandonar y empezar otra partida</button>
     </div>
   </div>
@@ -277,7 +275,7 @@ const cola = []; let tanda = null;
 function decir(t, urgente) {
   if (!t) return;
   ultimo = t;
-  const li = document.createElement("li"); li.textContent = t; $("#log").appendChild(li); $("#log").scrollTop = 1e9;
+  const lg = $("#log"), li = document.createElement("li"); li.textContent = t; lg.appendChild(li); while (lg.children.length > 60) lg.firstChild.remove();
   if (urgente) cola.length = 0;
   cola.push(t);
   if (!tanda) tanda = setTimeout(soltar, 20);
