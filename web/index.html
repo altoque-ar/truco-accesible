@@ -77,6 +77,10 @@ button { font: inherit; cursor: pointer; }
 .opciones { display: flex; flex-wrap: wrap; gap: 8px; }
 .op { background: var(--surface); color: var(--ink); border: 2px solid var(--ink); border-radius: 10px; padding: 10px 14px; min-height: 48px; font-weight: 700; }
 .op.fuerte { background: var(--accent); border-color: var(--accent); color: #fff; }
+/* Tres lugares fijos debajo de las cartas: izquierda, centro y derecha. */
+.opciones.barra3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.op.slot { min-height: 60px; padding: 10px 6px; font-size: 17px; line-height: 1.2; }
+.op[aria-disabled="true"] { opacity: .4; }
 .aviso { background: var(--surface); border: 2px solid var(--accent); border-radius: 12px; padding: 12px 14px; font-weight: 700; }
 
 .inicio { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 14px; }
@@ -221,7 +225,7 @@ function soltar() {
   setTimeout(() => { v.textContent = texto; }, 30);
 }
 let ac = null, musicaOn = true, pistaActual = null, fuenteMusica = null, gananciaMusica = null;
-const BUF = {}, VOL_MUSICA = 0.09;
+const BUF = {}, VOL_MUSICA = 0.03; // bien bajita: solo acompaña, no tapa al lector
 const ARCHIVOS = ["carta1", "carta2", "carta3", "turno", "gano-baza", "perdio-baza", "parda-baza", "gano-mano", "perdio-mano", "gano-partida", "perdio-partida", "musica-menu", "musica-juego"];
 const LARGO = { "musica-menu": 18.4615, "musica-juego": 64 };
 function audio() {
@@ -405,6 +409,8 @@ function pintar() {
   const q = r.pregunta;
   $("#pregunta").innerHTML = q && q.a === YO ? `<p class="aviso">${quien(q.por)} cantó ${NOMBRE_CANTO[cantoDe(q)]}. ¿Qué respondés?</p>` : "";
   const box = $("#opciones"), opFoco = box.contains(document.activeElement);
+  if (S.ganador == null && !r.terminada) { box.dataset.clave = ""; pintarBarra(box, ops, q && q.a === YO); return; }
+  box.classList.remove("barra3");
   const claveOps = S.ganador != null ? "fin" + (ONLINE ? ONLINE.host : "") : r.terminada ? "siguiente" + S.mano_n : ops.map((a) => a.tipo).join(",");
   if (box.dataset.clave === claveOps) return;
   box.dataset.clave = claveOps;
@@ -426,6 +432,49 @@ function pintar() {
   nuevos.forEach((b) => box.appendChild(b));
   if (opFoco) { const b = nuevos.find((x) => x.tagName === "BUTTON"); if (b) b.focus(); else focoCartas(); }
   viejos.forEach((b) => b.remove());
+}
+// Botones de abajo, siempre en el mismo lugar (pensado para el celular).
+// Jugando: izquierda Envido, centro Truco (o Quiero retruco / Quiero vale cuatro), derecha Me voy al mazo.
+// Cuando te cantan: izquierda No quiero, centro Quiero, derecha Más (para cantar otra cosa).
+// Los botones no se borran: se cambia el texto, así el foco no se pierde.
+const ENV_MENU = ["envido", "real_envido", "falta_envido", "flor"];
+const ORDEN_MAS = ["envido", "real_envido", "falta_envido", "flor", "retruco", "vale_cuatro", "contraflor", "contraflor_resto", "achico", "quiero", "no_quiero", "mazo"];
+function pintarBarra(box, ops, meCantaron) {
+  box.classList.add("barra3");
+  let bs = [...box.querySelectorAll("button.slot")];
+  if (bs.length !== 3) {
+    const conFoco = box.contains(document.activeElement), viejos = [...box.childNodes];
+    bs = [0, 1, 2].map(() => { const b = document.createElement("button"); b.type = "button"; b.className = "op slot"; b.addEventListener("click", () => { if (b._fn) b._fn(); }); box.appendChild(b); return b; });
+    if (conFoco) bs[1].focus();
+    viejos.forEach((x) => x.remove());
+  }
+  const tiene = (t) => ops.find((a) => a.tipo === t);
+  const espera = ocupado ? "Esperá, está jugando la computadora." : "Todavía no es tu turno.";
+  let def;
+  if (meCantaron) {
+    const no = tiene("no_quiero") || tiene("achico"), si = tiene("quiero") || tiene("contraflor");
+    const resto = ORDEN_MAS.map(tiene).filter((a) => a && a !== no && a !== si);
+    def = [
+      no ? { t: textoOp(no.tipo), fn: () => accion(no) } : { t: "No quiero", off: espera },
+      si ? { t: textoOp(si.tipo), fn: () => accion(si), fuerte: true } : { t: "Quiero", off: espera },
+      resto.length ? { t: "Más", fn: () => { if (ocupado) { decir(espera, true); return; } abrirMenu("Más", resto.map((a) => ({ texto: textoOp(a.tipo), fn: () => accion(a) }))); } } : { t: "Más", off: "No hay nada más para cantar." }
+    ];
+  } else {
+    const env = ENV_MENU.some(tiene), tr = tiene("truco") || tiene("retruco") || tiene("vale_cuatro"), mz = tiene("mazo");
+    const sigTruco = { 1: "Truco", 2: "Quiero retruco", 3: "Quiero vale cuatro" }[S.ronda.truco.nivel] || "Vale cuatro";
+    def = [
+      env ? { t: "Envido", fn: menuEnvido } : { t: "Envido", off: !ops.length ? espera : S.ronda.envido.estado !== "nada" ? "El envido ya se jugó en esta mano." : "Ahora no podés cantar envido." },
+      tr ? { t: textoOp(tr.tipo), fn: () => accion(tr) } : { t: sigTruco, off: !ops.length ? espera : S.ronda.truco.nivel >= 4 ? "Ya se cantó vale cuatro." : "Ahora no podés cantar " + sigTruco.replace("Quiero ", "").toLowerCase() + "." },
+      mz ? { t: "Me voy al mazo", fn: () => accion(mz) } : { t: "Me voy al mazo", off: espera }
+    ];
+  }
+  def.forEach((d, i) => {
+    const b = bs[i];
+    if (b.textContent !== d.t) b.textContent = d.t;
+    b.classList.toggle("fuerte", !!d.fuerte);
+    if (d.off) { b.setAttribute("aria-disabled", "true"); b._fn = () => decir(d.off, true); }
+    else { b.removeAttribute("aria-disabled"); b._fn = d.fn; }
+  });
 }
 // Tus cartas. Nunca se borra el botón que tiene el foco antes de pasarle el foco a otro:
 // si el foco se pierde, el lector se sale de la mesa y las flechas dejan de andar.
@@ -609,7 +658,7 @@ function cerrarMenu(avisar) {
 const ENVIDOS_T = ["envido", "real_envido", "falta_envido"];
 function menuEnvido() {
   if (ocupado) { decir("Esperá, está jugando la computadora.", true); return; }
-  const ops = acciones(S, YO).filter((a) => ENVIDOS_T.includes(a.tipo));
+  const ops = ENV_MENU.map((t) => acciones(S, YO).find((a) => a.tipo === t)).filter(Boolean);
   if (!ops.length) { decir(S.ronda.envido.estado !== "nada" ? "El envido ya se jugó en esta mano." : "Ahora no podés cantar envido.", true); return; }
   abrirMenu("Envido", ops.map((a) => ({ texto: textoOp(a.tipo), fn: () => accion(a) })));
 }
