@@ -174,6 +174,43 @@ ol.log { margin: 8px 0 0; padding-left: 22px; max-height: 260px; overflow-y: aut
   .globo { animation: globo 2.6s forwards !important; }
 }
 .chico { background: none; border: 0; color: var(--ink); text-decoration: underline; padding: 6px 0; font-size: 16px; }
+/* ---------------- Modo aplicación: durante la partida todo entra en una sola pantalla, sin scroll ---------------- */
+body.en-juego { height: 100vh; height: 100dvh; overflow: hidden; overscroll-behavior: none;
+  padding: max(8px, env(safe-area-inset-top, 0px)) max(10px, env(safe-area-inset-right, 0px)) max(8px, env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-left, 0px)); }
+body.en-juego main { height: 100%; gap: 0; }
+body.en-juego .barra { display: none; }
+body.en-juego #juego { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+body.en-juego #juego > [role=application] { flex: 1 1 auto; min-height: 0; gap: 8px !important; }
+body.en-juego #juego h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0; }
+body.en-juego .score { gap: 8px; flex: 0 0 auto; }
+body.en-juego .score div { display: flex; align-items: center; gap: 8px; padding: 4px 10px; border-radius: 10px; }
+body.en-juego .score b { display: inline; font-size: 26px; }
+body.en-juego .score span { font-size: 14px; }
+body.en-juego .porotos { flex: 1 1 auto; margin: 0; min-width: 0; min-height: 0; }
+body.en-juego .porotos svg { height: 15px; margin-left: auto; }
+body.en-juego .mesa { flex: 1 1 auto; min-height: 0; padding: 8px; gap: 6px; border-radius: 14px; }
+body.en-juego .estado { font-size: 15px; line-height: 1.3; }
+body.en-juego .pano, body.en-juego .pano.de4 { flex: 1 1 auto; height: auto; min-height: 150px; }
+body.en-juego #juego section:has(#cartas) { flex: 0 0 auto; }
+body.en-juego .cartas .carta { flex: 0 0 auto; height: min(19vh, 150px); height: min(19dvh, 150px); width: auto; aspect-ratio: 5 / 7; max-width: none; }
+body.en-juego #juego section:has(#opciones) { flex: 0 0 auto; }
+body.en-juego .aviso { padding: 6px 10px; font-size: 15px; margin-bottom: 6px; border-radius: 10px; }
+body.en-juego .op.slot { min-height: 50px; font-size: 16px; }
+body.en-juego #nueva { flex: 0 0 auto; padding: 0; font-size: 14px; align-self: center; }
+body.en-juego .menu { position: fixed; left: 10px; right: 10px; bottom: max(10px, env(safe-area-inset-bottom, 0px)); z-index: 20; max-width: 660px; margin: 0 auto; max-height: 70vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,.45); }
+/* El paño se acomoda a la altura que quede: las cartas y los lugares se miden con la altura del paño. */
+.pano { container-type: size; --dh: clamp(20px, 10cqh, 31px); --ph: clamp(40px, 19cqh, 64px); }
+.dorsos { min-height: var(--dh); }
+.dorsos svg { height: var(--dh); width: calc(var(--dh) * .71); margin-left: calc(var(--dh) * -.3); }
+.pila .pc svg { height: var(--ph); width: calc(var(--ph) * .71); }
+.pila.arriba { top: calc(6px + var(--dh) + 28px); }
+.pila.abajo { bottom: 32px; }
+.pila.izq { left: calc(var(--dh) * .71 * 2 + 14px); } .pila.der { right: calc(var(--dh) * .71 * 2 + 14px); }
+.pila.arriba .pc + .pc, .pila.abajo .pc + .pc { margin-left: calc(var(--ph) * -.2); }
+.pila.izq .pc + .pc, .pila.der .pc + .pc { margin-top: calc(var(--ph) * -.64); }
+.asiento.arriba { top: 6px; } .asiento.abajo { bottom: 6px; }
+.globo.arriba { top: calc(6px + var(--dh) + 26px); }
+.globo.abajo { bottom: 30px; }
 </style>
 
 <main>
@@ -899,6 +936,8 @@ function volver() {
   (eraOnline ? $("#crear") : $("#empezar")).focus();
 }
 
+// Modo aplicación: mientras se ve la mesa, la página no se mueve (todo entra en una pantalla).
+new MutationObserver(() => { document.body.classList.toggle("en-juego", !$("#juego").hidden); window.scrollTo(0, 0); }).observe($("#juego"), { attributes: true, attributeFilter: ["hidden"] });
 $("#empezar").addEventListener("click", empezar);
 $("#nueva").addEventListener("click", volver);
 // La música del menú arranca con la primera tecla o toque (los navegadores no dejan sonar antes).
