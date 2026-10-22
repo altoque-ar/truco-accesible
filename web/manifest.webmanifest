@@ -1,0 +1,16 @@
+{
+  "name": "Truco Accesible",
+  "short_name": "Truco",
+  "description": "Truco argentino accesible, para jugar con lector de pantalla contra la compu o online con amigos.",
+  "lang": "es-AR",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#16683a",
+  "theme_color": "#16683a",
+  "icons": [
+    { "src": "icono/icono-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icono/icono-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icono/icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
