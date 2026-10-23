@@ -309,16 +309,22 @@ let senaComp = [], senaMia = [];
 
 // ------------------------------------------------------------ voz y sonido
 const cola = []; let tanda = null;
+// Mientras las voces dicen los números del envido, el lector espera (para no pisarse).
+let lectorEspera = 0;
 function decir(t, urgente) {
   if (!t) return;
   ultimo = t;
   const lg = $("#log"), li = document.createElement("li"); li.textContent = t; lg.appendChild(li); while (lg.children.length > 60) lg.firstChild.remove();
+  const falta = lectorEspera - Date.now();
+  if (urgente && falta > 0) { const v = $("#voz"); v.textContent = ""; setTimeout(() => { v.textContent = t; }, 30); return; }
   if (urgente) cola.length = 0;
   cola.push(t);
-  if (!tanda) tanda = setTimeout(soltar, 20);
+  if (!tanda) tanda = setTimeout(soltar, Math.max(20, falta));
 }
 function soltar() {
   tanda = null;
+  const falta = lectorEspera - Date.now();
+  if (falta > 0) { tanda = setTimeout(soltar, falta); return; }
   const v = $("#voz"), texto = cola.splice(0).join(" ");
   if (!texto) return;
   v.textContent = "";
@@ -339,7 +345,7 @@ function audio() {
 }
 // Para las pruebas automáticas (solo con ?prueba en la dirección).
 const PRUEBA = /[?&]prueba/.test(location.search);
-if (PRUEBA) window.__truco = { S: () => S, sonidos: [], pintar: () => pintar() };
+if (PRUEBA) window.__truco = { S: () => S, sonidos: [], voces: [], pintar: () => pintar(), NUM: () => NUM };
 function efecto(n, vol = 0.7) {
   if (PRUEBA) window.__truco.sonidos.push(n);
   if (!sonido || !audio() || !BUF[n]) return;
@@ -358,18 +364,51 @@ function tono() {}
 // Voces de los cantos: solo grabaciones reales (archivos en sonidos/voces/ o grabadas desde el juego).
 // No se usa la voz del sistema porque traba al lector de pantalla.
 let vocesOn = true;
-const FRASE = { truco: "Truco", retruco: "Quiero retruco", vale_cuatro: "Quiero vale cuatro", envido: "Envido", real_envido: "Real envido", falta_envido: "Falta envido", flor: "Flor", contraflor: "Contraflor", quiero: "Quiero", no_quiero: "No quiero", mazo: "Me voy al mazo" };
+const FRASE = { truco: "Truco", retruco: "Quiero retruco", vale_cuatro: "Quiero vale cuatro", envido: "Envido", real_envido: "Real envido", falta_envido: "Falta envido", flor: "Flor", contraflor: "Contraflor", contraflor_resto: "Contraflor al resto", quiero: "Quiero", no_quiero: "No quiero", mazo: "Me voy al mazo" };
 const GRAB = {};
 // Voces que vienen con el juego (en sonidos/voces/).
-// Grabadas por un amigo de Fer.
-const VOCES_INCLUIDAS = ["truco", "retruco", "vale_cuatro", "envido", "real_envido", "falta_envido", "flor", "contraflor", "quiero", "no_quiero"];
+// Voz de Alexis (amigo de Fer). "contraflor" sola sale recortada de "contraflor al resto".
+const VOCES_INCLUIDAS = ["truco", "retruco", "vale_cuatro", "envido", "real_envido", "falta_envido", "flor", "contraflor", "contraflor_resto", "quiero", "no_quiero", "mazo"];
+// Dos voces: la original (equipo del que creó la mesa; contra la compu, el tuyo) y la aguda (el otro equipo).
+// La aguda está en sonidos/voces/aguda/. Números del envido: sonidos/voces/numeros/27.mp3 y sonidos/voces/aguda/numeros/27.mp3.
+const NUMEROS_ENVIDO = [0, 1, 2, 3, 4, 5, 6, 7, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33];
+const NUM = { normal: {}, aguda: {} };
+const GRAB_AGUDA = {};
 function cargarVoces() {
   VOCES_INCLUIDAS.forEach((k) => fetch("sonidos/voces/" + k + ".mp3").then((r) => r.ok ? r.arrayBuffer() : Promise.reject()).then((b) => ac.decodeAudioData(b)).then((d) => { if (!GRAB[k]) { GRAB[k] = recortar(d); pintarFrases(); } }).catch(() => {}));
+  VOCES_INCLUIDAS.forEach((k) => fetch("sonidos/voces/aguda/" + k + ".mp3").then((r) => r.ok ? r.arrayBuffer() : Promise.reject()).then((b) => ac.decodeAudioData(b)).then((d) => { GRAB_AGUDA[k] = recortar(d); }).catch(() => {}));
+  ["normal", "aguda"].forEach((quien) => NUMEROS_ENVIDO.forEach((n) => fetch("sonidos/voces/" + (quien === "aguda" ? "aguda/" : "") + "numeros/" + n + ".mp3").then((r) => r.ok ? r.arrayBuffer() : Promise.reject()).then((b) => ac.decodeAudioData(b)).then((d) => { NUM[quien][n] = recortar(d); }).catch(() => {})));
 }
 function conVoz(canto) { return vocesOn && !!GRAB[canto]; }
-function hablar(canto) {
+// Las voces van en fila: una no pisa a la otra (ej. "quiero" y después los números).
+let vozLibre = 0;
+function sonarVoz(buf, pausa = 0.25) {
+  if (!buf || !audio()) return 0;
+  const s = ac.createBufferSource(), g = ac.createGain(); s.buffer = buf; g.gain.value = 0.95; s.connect(g).connect(ac.destination);
+  const t = Math.max(ac.currentTime + 0.05, vozLibre); s.start(t);
+  vozLibre = t + buf.duration + pausa;
+  return vozLibre - ac.currentTime; // segundos hasta que termina
+}
+// ¿Qué voz le toca a este jugador? Original el equipo del que creó la mesa (contra la compu, el tuyo); aguda el otro.
+function vozDe(p) {
+  if (p == null || !S) return "normal";
+  const host = ONLINE ? (ONLINE.hostAsiento ?? 0) : YO;
+  return equipo(p) === equipo(host) ? "normal" : "aguda";
+}
+function hablar(canto, jugador) {
+  if (PRUEBA) window.__truco.voces.push(canto + (vozDe(jugador) === "aguda" ? ":aguda" : ""));
   if (!vocesOn || !audio() || !GRAB[canto]) return;
-  const s = ac.createBufferSource(), g = ac.createGain(); s.buffer = GRAB[canto]; g.gain.value = 0.95; s.connect(g).connect(ac.destination); s.start(ac.currentTime + 0.05);
+  sonarVoz((vozDe(jugador) === "aguda" && GRAB_AGUDA[canto]) || GRAB[canto]);
+}
+function vozNumero(p) { return vozDe(p); }
+// Cada uno dice su envido en voz alta, en orden (el mano primero). Devuelve true si sonaron todos.
+function cantarTantos(tantos) {
+  if (PRUEBA) tantos.forEach((x) => window.__truco.voces.push(vozNumero(x.jugador) + ":" + x.tantos));
+  if (!vocesOn || !audio() || !tantos.every((x) => NUM[vozNumero(x.jugador)][x.tantos])) return false;
+  let fin = 0;
+  tantos.forEach((x) => { fin = sonarVoz(NUM[vozNumero(x.jugador)][x.tantos], 0.45); });
+  lectorEspera = Date.now() + fin * 1000;
+  return true;
 }
 // Saca el silencio del principio y del final (y el ruido de la tecla al terminar).
 function recortar(d) {
@@ -479,11 +518,12 @@ function narrar(ev) {
     globo(ev.jugador, ev.quiero ? "¡Quiero!" : "No quiero"); (ev.quiero ? SON.quiero : SON.noQuiero)(); hablar(ev.quiero ? "quiero" : "no_quiero", ev.jugador); return ev.jugador === YO ? (conVoz(ev.quiero ? "quiero" : "no_quiero") ? "" : `Dijiste ${ev.quiero ? "quiero" : "no quiero"}.`) :`${quien(ev.jugador)}: ${ev.quiero ? "quiero" : "no quiero"}.`;
     case "envido": {
       ev.tantos.forEach((x) => globo(x.jugador, String(x.tantos)));
+      if (cantarTantos(ev.tantos)) return ""; // ya lo dijeron las voces; después el lector dice los puntos
       const t = ev.tantos.map((x) => `${quienMin(x.jugador)} ${x.tantos}`).join(", ");
       return `Envido: ${t}. ${ev.gano === NOS() ? "Lo ganamos." : "Lo ganan ellos."}`;
     }
     case "flor": globo(ev.jugador, "Flor de " + ev.tantos); return `${ev.jugador === YO ? "Ganaste" : quien(ev.jugador) + " gana"} con flor de ${ev.tantos}.`;
-    case "mazo": globo(ev.jugador, "Me voy al mazo"); SON.mazo(); hablar("mazo", ev.jugador); return ev.jugador === YO ? "Te fuiste al mazo." : `${quien(ev.jugador)} se va al mazo.`;
+    case "mazo": globo(ev.jugador, "Me voy al mazo"); SON.mazo(); hablar("mazo", ev.jugador); return ev.jugador === YO ? (conVoz("mazo") ? "" : "Te fuiste al mazo.") : `${quien(ev.jugador)} se va al mazo.`;
     case "puntos": return `${ev.equipo === NOS() ? "Sumamos" : "Ellos suman"} ${ev.puntos} ${ev.puntos === 1 ? "punto" : "puntos"}${ev.motivo === "envido" ? " de envido" : ev.motivo === "flor" ? " de flor" : ""}. Van ${ev.total[NOS()]} a ${ev.total[1 - NOS()]}.`;
     case "fin_ronda": (ev.equipo === NOS() ? SON.gano : SON.perdio)(); return "";
     case "fin_partida": musica(null); (ev.ganador === NOS() ? SON.ganoPartida : SON.perdioPartida)(); return "";
@@ -1052,6 +1092,7 @@ function mostrarSala(m) {
   const nueva = ONLINE.sala !== m.sala;
   Object.assign(ONLINE, { sala: m.sala, token: m.token, host: m.host, cfg: m.cfg, estado: m.estado });
   ONLINE.nombreHost = m.hostNombre;
+  ONLINE.hostAsiento = Math.max(0, m.asientos.findIndex((a) => a && a.nombre === m.hostNombre));
   guardar("truco-mesa", JSON.stringify({ sala: m.sala, token: m.token }));
   YO = m.yo;
   $("#sala-titulo").textContent = "Mesa " + m.sala;
