@@ -58,6 +58,18 @@ function mezclar(a, rng) { var r = azar(rng); for (var i = a.length - 1; i > 0; 
 
 export function equipo(p) { return p % 2; }
 
+// Nombres de los jugadores de la casa (los que juega la máquina). Se sortean en cada partida.
+export const NOMBRES_CASA = ["Cacho", "Coco", "Tito", "Beto", "Chiche", "Pocho", "Quique", "Lalo", "Rulo", "Tuco",
+  "Raúl", "Rubén", "Osvaldo", "Carlitos", "Héctor", "Pancho", "Nacho", "Toto", "Pepe", "Don Julio",
+  "Don Ramón", "Don Segundo", "Don Pedro", "Don Alberto"];
+// Sortea "cuantos" nombres distintos, sin repetir los que ya están en la mesa.
+export function sortearNombres(cuantos, evitar, rng) {
+  var r = rng || Math.random, ya = (evitar || []).map(function (x) { return String(x).toLowerCase(); });
+  var bolsa = NOMBRES_CASA.filter(function (n) { return ya.indexOf(n.toLowerCase()) < 0; }), out = [];
+  for (var i = 0; i < cuantos && bolsa.length; i++) out.push(bolsa.splice(Math.floor(r() * bolsa.length), 1)[0]);
+  return out;
+}
+
 export function crearPartida(opciones, rng) {
   var cfg = Object.assign({ jugadores: 2, puntos: 30, flor: false, nombres: null }, opciones || {});
   if ([2, 4, 6].indexOf(cfg.jugadores) < 0) throw new Error("Se juega de a 2, 4 o 6.");
@@ -79,7 +91,7 @@ export function repartir(s) {
     baza: { jugadas: [], inicio: s.mano },
     turno: s.mano,
     truco: { nivel: 1, dueno: null },            // dueno: equipo que puede subir la apuesta
-    envido: { estado: "nada", cadena: [] },     // nada | cantado | terminado
+    envido: { estado: "nada", cadena: [], cantaron: [] },     // nada | cantado | terminado; cantaron: quiénes cantaron envido
     flor: { cantada: [], terminada: false },
     pregunta: null,                               // { tipo: "truco" | "envido", por: jugador, a: jugador, cadena / nivel }
     trucoEnEspera: null,                          // si se cantó envido estando el truco sin responder
@@ -131,6 +143,19 @@ function envidoPermitido(s, p) {
   return true;
 }
 
+// La flor se canta en la primera baza, antes de tirar tu carta, y solo mientras el envido
+// no se haya resuelto. Si ya se quiso (o no se quiso) el envido, la flor ya no va.
+// El que cantó envido tampoco puede cantar flor después. Al que le cantan envido sí puede
+// contestar "flor" (la flor mata al envido).
+function florPermitida(s, p) {
+  var r = s.ronda;
+  if (!s.cfg.flor || !enPrimera(s) || yaJugoPrimera(s, p)) return false;
+  if (!tieneFlor(r.cartas[p]) || r.flor.cantada.indexOf(p) >= 0) return false;
+  if (r.envido.estado === "terminado") return false;
+  if (r.envido.cantaron.indexOf(p) >= 0) return false;
+  return true;
+}
+
 // ---------------------------------------------------------------- qué puede hacer cada uno
 export function acciones(s, p) {
   var r = s.ronda, out = [];
@@ -140,18 +165,21 @@ export function acciones(s, p) {
     if (q.a !== p) return out;
     if (q.tipo === "flor") { opcionesFlor(q).forEach(function (t) { out.push({ tipo: t }); }); return out; }
     out.push({ tipo: "quiero" }, { tipo: "no_quiero" });
-    if (q.tipo === "envido") siguientesEnvidos(q.cadena).forEach(function (t) { out.push({ tipo: t }); });
+    if (q.tipo === "envido") {
+      siguientesEnvidos(q.cadena).forEach(function (t) { out.push({ tipo: t }); });
+      if (florPermitida(s, p)) out.push({ tipo: "flor" });
+    }
     if (q.tipo === "truco") {
       if (q.nivel < 4) out.push({ tipo: SIG_TRUCO[q.nivel] });
       if (envidoPermitido(s, p) && !r.trucoEnEspera) ["envido", "real_envido", "falta_envido"].forEach(function (t) { out.push({ tipo: t }); });
-      if (s.cfg.flor && enPrimera(s) && !yaJugoPrimera(s, p) && tieneFlor(r.cartas[p]) && r.flor.cantada.indexOf(p) < 0) out.push({ tipo: "flor" });
+      if (florPermitida(s, p)) out.push({ tipo: "flor" });
     }
     out.push({ tipo: "mazo" });
     return out;
   }
   if (r.turno !== p) return out;
   cartasEnMano(s, p).forEach(function (c) { out.push({ tipo: "jugar", carta: c }); });
-  if (s.cfg.flor && enPrimera(s) && !yaJugoPrimera(s, p) && tieneFlor(r.cartas[p]) && r.flor.cantada.indexOf(p) < 0) out.push({ tipo: "flor" });
+  if (florPermitida(s, p)) out.push({ tipo: "flor" });
   if (envidoPermitido(s, p)) ["envido", "real_envido", "falta_envido"].forEach(function (t) { out.push({ tipo: t }); });
   if (r.truco.nivel < 4 && (r.truco.dueno == null || r.truco.dueno === equipo(p))) out.push({ tipo: SIG_TRUCO[r.truco.nivel] });
   out.push({ tipo: "mazo" });
@@ -265,6 +293,7 @@ function cantarEnvido(s, p, t) {
   if (q && q.tipo === "truco") { r.trucoEnEspera = q; q = null; }
   var cadena = q && q.tipo === "envido" ? q.cadena.concat(t) : [t];
   r.envido.estado = "cantado";
+  if (r.envido.cantaron.indexOf(p) < 0) r.envido.cantaron.push(p);
   r.pregunta = { tipo: "envido", por: p, a: rivalSiguiente(s, p), cadena: cadena };
   evento(s, { tipo: "canto", jugador: p, canto: t });
 }
@@ -324,7 +353,7 @@ function cantarFlor(s, p) {
   r.flor.cantada.push(p);
   r.envido.estado = "terminado";
   evento(s, { tipo: "canto", jugador: p, canto: "flor" });
-  if (q && q.tipo === "envido") { r.pregunta = null; q = null; }
+  if (q && q.tipo === "envido") { r.pregunta = null; q = null; if (r.trucoEnEspera) { q = r.trucoEnEspera; r.trucoEnEspera = null; r.pregunta = q; } }
   var N = s.cfg.jugadores, rivales = [];
   for (var k = 1; k < N; k++) { var j = (p + k) % N; if (equipo(j) !== equipo(p) && tieneFlor(r.cartas[j])) rivales.push(j); }
   if (!rivales.length) return sumar(s, equipo(p), 3, "flor");
