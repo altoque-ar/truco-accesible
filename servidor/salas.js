@@ -5,7 +5,7 @@
 import { crearPartida, jugar, siguienteRonda, equipo } from "../src/motor.js";
 import { elegir, senasDe, SENAS } from "../src/rival.js";
 
-export const TIEMPOS = { compu: 900, siguienteMano: 5000, reemplazo: 30000, limpiar: 2 * 60 * 60 * 1000 };
+export const TIEMPOS = { compu: 900, mezcla: 4500, siguienteMano: 3000, reemplazo: 30000, limpiar: 2 * 60 * 60 * 1000 };
 
 const salas = new Map();
 const azarToken = () => Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
@@ -176,6 +176,7 @@ function empezar(s, j) {
   s.asientos = s.asientos.map((x, i) => x || { sala: s, nombre: s.cfg.jugadores === 2 ? "La compu" : "Compu " + k++, asiento: i, humano: false });
   s.estado = "jugando";
   s.partida = crearPartida({ ...s.cfg, nombres: s.asientos.map((x) => x.nombre) });
+  s.mezclaHasta = Date.now() + TIEMPOS.mezcla; // mientras suena la mezcla nadie juega
   s.senas = Array.from({ length: s.cfg.jugadores }, () => []);
   avisarSala(s);
   difundir(s, s.partida.eventos.slice(), true);
@@ -201,6 +202,7 @@ function accion(s, j, a) {
   const st = s.partida;
   if (!st || s.estado !== "jugando") return error(j.con, "La partida no empezó.");
   if (!a || typeof a.tipo !== "string") return;
+  if (Date.now() < (s.mezclaHasta || 0)) return error(j.con, "Esperá, están mezclando.");
   if (a.tipo === "jugar" && a.carta) a = { tipo: "jugar", carta: { n: Number(a.carta.n), p: String(a.carta.p) } };
   let evs;
   try { evs = jugar(st, j.asiento, a); }
@@ -209,7 +211,7 @@ function accion(s, j, a) {
   mover(s);
 }
 
-// Hace jugar a la compu cuando le toca, y reparte la próxima mano sola a los 5 segundos.
+// Hace jugar a la compu cuando le toca, y reparte la próxima mano sola a los 3 segundos.
 function mover(s) {
   const st = s.partida;
   if (!st || s.pendiente) return;
@@ -219,6 +221,7 @@ function mover(s) {
       s.pendiente = null;
       if (s.partida !== st || st.ganador != null) return;
       siguienteRonda(st);
+      s.mezclaHasta = Date.now() + TIEMPOS.mezcla;
       difundir(s, st.eventos.slice(-1));
       repartirSenas(s);
       mover(s);
@@ -236,7 +239,7 @@ function mover(s) {
     const a = elegir(st, p, { senas });
     if (a) difundir(s, jugar(st, p, a));
     mover(s);
-  }, TIEMPOS.compu);
+  }, Math.max(TIEMPOS.compu, (s.mezclaHasta || 0) - Date.now() + TIEMPOS.compu));
 }
 
 function reloj(s, fn, ms) {

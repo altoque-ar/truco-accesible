@@ -1,4 +1,4 @@
-// Servidor del Truco Accesible online.
+// Servidor del Truco online.
 // - Sirve el juego (la carpeta web) para abrirlo desde cualquier celular o compu.
 // - Atiende las mesas online por WebSocket en /ws.
 // Sin paquetes de npm: se arranca con "node servidor/servidor.js".
@@ -44,5 +44,5 @@ export function arrancar(puerto = PUERTO) {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  arrancar().then(() => console.log(`Truco Accesible online en el puerto ${PUERTO}`));
+  arrancar().then(() => console.log(`Truco online en el puerto ${PUERTO}`));
 }
