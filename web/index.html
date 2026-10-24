@@ -387,10 +387,21 @@ function audio() {
 // Para las pruebas automáticas (solo con ?prueba en la dirección).
 const PRUEBA = /[?&]prueba/.test(location.search);
 if (PRUEBA) window.__truco = { S: () => S, sonidos: [], voces: [], pintar: () => pintar(), NUM: () => NUM };
+// Todos los sonidos del juego (cartas, bazas, voces, mezcla) van en UNA sola fila, en el orden en que pasan:
+// así la voz del canto, la carta y el sonido de la baza nunca se pisan ni suenan a destiempo.
+let libre = 0; // momento (reloj del audio) en que termina lo último que está en la fila
+function enFila(buf, vol, pausa) {
+  const s = ac.createBufferSource(), g = ac.createGain(); s.buffer = buf; g.gain.value = vol; s.connect(g).connect(ac.destination);
+  const t = Math.max(ac.currentTime + 0.02, libre); s.start(t);
+  libre = t + buf.duration + pausa;
+  return t - ac.currentTime; // segundos hasta que empieza
+}
+// Segundos que faltan para que termine todo lo que está sonando o esperando en la fila.
+function faltaAudio() { return ac ? Math.max(0, libre - ac.currentTime) : 0; }
 function efecto(n, vol = 0.7) {
   if (PRUEBA) window.__truco.sonidos.push(n);
-  if (!sonido || !audio() || !BUF[n]) return;
-  const s = ac.createBufferSource(), g = ac.createGain(); s.buffer = BUF[n]; g.gain.value = vol; s.connect(g).connect(ac.destination); s.start();
+  if (!sonido || !audio() || !BUF[n]) return 0;
+  return enFila(BUF[n], vol, 0.04);
 }
 function musica(n) {
   pistaActual = n;
@@ -421,14 +432,14 @@ function cargarVoces() {
   ["normal", "aguda"].forEach((quien) => NUMEROS_ENVIDO.forEach((n) => fetch("sonidos/voces/" + (quien === "aguda" ? "aguda/" : "") + "numeros/" + n + ".mp3").then((r) => r.ok ? r.arrayBuffer() : Promise.reject()).then((b) => ac.decodeAudioData(b)).then((d) => { NUM[quien][n] = recortar(d); }).catch(() => {})));
 }
 function conVoz(canto) { return vocesOn && !!GRAB[canto]; }
-// Las voces van en fila: una no pisa a la otra (ej. "quiero" y después los números).
-let vozLibre = 0;
+// Las voces van en la misma fila que los demás sonidos (ej. "quiero" y después los números).
+// Mientras habla una voz, el lector espera a que termine para no pisarse.
 function sonarVoz(buf, pausa = 0.25) {
   if (!buf || !audio()) return 0;
-  const s = ac.createBufferSource(), g = ac.createGain(); s.buffer = buf; g.gain.value = 0.95; s.connect(g).connect(ac.destination);
-  const t = Math.max(ac.currentTime + 0.05, vozLibre); s.start(t);
-  vozLibre = t + buf.duration + pausa;
-  return vozLibre - ac.currentTime; // segundos hasta que termina
+  enFila(buf, 0.95, pausa);
+  const fin = faltaAudio();
+  lectorEspera = Math.max(lectorEspera, Date.now() + fin * 1000);
+  return fin; // segundos hasta que termina
 }
 // ¿Qué voz le toca a este jugador? Original el equipo del que creó la mesa (contra la compu, el tuyo); aguda el otro.
 function vozDe(p) {
@@ -554,9 +565,9 @@ function narrar(ev) {
       salgoYo = ev.jugador === YO;
       return "";
     }
-    case "canto": globo(ev.jugador, "¡" + mayus(NOMBRE_CANTO[ev.canto]) + "!"); SON.canto(ev.canto); hablar(ev.canto, ev.jugador); return ev.jugador === YO ? (conVoz(ev.canto) ? "" : `Cantaste ${NOMBRE_CANTO[ev.canto]}.`) : `${quien(ev.jugador)}: ${NOMBRE_CANTO[ev.canto]}.`;
+    case "canto": globo(ev.jugador, "¡" + mayus(NOMBRE_CANTO[ev.canto]) + "!"); SON.canto(ev.canto); hablar(ev.canto, ev.jugador); return ev.jugador === YO ? (conVoz(ev.canto) ? "" : `Cantaste ${NOMBRE_CANTO[ev.canto]}.`) : (conVoz(ev.canto) && n === 2 ? "" : `${quien(ev.jugador)}: ${NOMBRE_CANTO[ev.canto]}.`);
     case "respuesta": if (ev.nivel) return ""; // aceptó subiendo la apuesta: ya lo dice el canto ("quiero retruco")
-    globo(ev.jugador, ev.quiero ? "¡Quiero!" : "No quiero"); (ev.quiero ? SON.quiero : SON.noQuiero)(); hablar(ev.quiero ? "quiero" : "no_quiero", ev.jugador); return ev.jugador === YO ? (conVoz(ev.quiero ? "quiero" : "no_quiero") ? "" : `Dijiste ${ev.quiero ? "quiero" : "no quiero"}.`) :`${quien(ev.jugador)}: ${ev.quiero ? "quiero" : "no quiero"}.`;
+    globo(ev.jugador, ev.quiero ? "¡Quiero!" : "No quiero"); (ev.quiero ? SON.quiero : SON.noQuiero)(); hablar(ev.quiero ? "quiero" : "no_quiero", ev.jugador); return ev.jugador === YO ? (conVoz(ev.quiero ? "quiero" : "no_quiero") ? "" : `Dijiste ${ev.quiero ? "quiero" : "no quiero"}.`) : (conVoz(ev.quiero ? "quiero" : "no_quiero") && n === 2 ? "" : `${quien(ev.jugador)}: ${ev.quiero ? "quiero" : "no quiero"}.`);
     case "envido": {
       ev.tantos.forEach((x) => globo(x.jugador, String(x.tantos)));
       if (cantarTantos(ev.tantos)) return ""; // ya lo dijeron las voces; después el lector dice los puntos
@@ -564,7 +575,7 @@ function narrar(ev) {
       return `Envido: ${t}. ${ev.gano === NOS() ? "Lo ganamos." : "Lo ganan ellos."}`;
     }
     case "flor": globo(ev.jugador, "Flor de " + ev.tantos); return `${ev.jugador === YO ? "Ganaste" : quien(ev.jugador) + " gana"} con flor de ${ev.tantos}.`;
-    case "mazo": globo(ev.jugador, "Me voy al mazo"); SON.mazo(); hablar("mazo", ev.jugador); return ev.jugador === YO ? (conVoz("mazo") ? "" : "Te fuiste al mazo.") : `${quien(ev.jugador)} se va al mazo.`;
+    case "mazo": globo(ev.jugador, "Me voy al mazo"); SON.mazo(); hablar("mazo", ev.jugador); return ev.jugador === YO ? (conVoz("mazo") ? "" : "Te fuiste al mazo.") : (conVoz("mazo") && n === 2 ? "" : `${quien(ev.jugador)} se va al mazo.`);
     case "puntos": return `${ev.equipo === NOS() ? "Sumamos" : "Ellos suman"} ${ev.puntos} ${ev.puntos === 1 ? "punto" : "puntos"}${ev.motivo === "envido" ? " de envido" : ev.motivo === "flor" ? " de flor" : ""}. Van ${ev.total[NOS()]} a ${ev.total[1 - NOS()]}.`;
     case "fin_ronda": (ev.equipo === NOS() ? SON.gano : SON.perdio)(); destello(ev.equipo === NOS()); return "";
     case "fin_partida": musica(null); (ev.ganador === NOS() ? SON.ganoPartida : SON.perdioPartida)(); return "";
@@ -949,12 +960,12 @@ function procesar(evs) {
   const i = evs.findIndex((e) => e.tipo === "reparto");
   if (i < 0) { evs.forEach((e) => decir(narrar(e))); pintar(); return; }
   evs.slice(0, i).forEach((e) => decir(narrar(e)));
-  efecto("reparto", 0.8); mezclaHasta = Date.now() + MEZCLA_MS;
+  const arranca = efecto("reparto", 0.8) * 1000; mezclaHasta = Date.now() + arranca + MEZCLA_MS;
   const yo = S, resto = evs.slice(i);
   pintarPano(); // la mesa queda vacía mientras se mezcla
   $("#cartas").classList.add("mezclando");
   clearTimeout(finMezcla);
-  finMezcla = setTimeout(() => { if (S !== yo) return; mezclaHasta = 0; $("#cartas").classList.remove("mezclando"); resto.forEach((e) => decir(narrar(e))); pintar(); }, MEZCLA_MS);
+  finMezcla = setTimeout(() => { if (S !== yo) return; mezclaHasta = 0; $("#cartas").classList.remove("mezclando"); resto.forEach((e) => decir(narrar(e))); pintar(); }, arranca + MEZCLA_MS);
 }
 let finMezcla = null;
 function seguro(fn) { try { return fn(); } catch (err) { decir(err.message, true); pintar(); return []; } }
@@ -999,7 +1010,7 @@ function bots() {
     if (a) procesar(jugar(S, p, a));
     ocupado = false;
     bots();
-  }, 600);
+  }, Math.max(600, faltaAudio() * 1000 + 300));
 }
 function avisarTurno() {
   const r = S.ronda;
@@ -1014,12 +1025,13 @@ function avisarTurno() {
   }
 }
 let reloj = null;
+const ESPERA_MANO = 1000; // 1 segundo después del último sonido de la mano, y mezcla sola
 function finMano() {
   pintar();
   // Si el foco quedó en el aire (se fue tu última carta), lo dejo en el botón para que el lector no se pierda.
   if (!$("#juego").contains(document.activeElement)) { const b = $("#opciones button"); if (b) b.focus(); }
   clearTimeout(reloj);
-  if (S.ganador == null && !ONLINE) { const yo = S; reloj = setTimeout(() => { if (S === yo && S.ronda.terminada) proxima(); }, 3000); }
+  if (S.ganador == null && !ONLINE) { const yo = S; reloj = setTimeout(() => { if (S === yo && S.ronda.terminada) proxima(); }, faltaAudio() * 1000 + ESPERA_MANO); }
 }
 function proxima() {
   clearTimeout(reloj); reloj = null;

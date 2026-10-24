@@ -123,7 +123,9 @@ function siguientesEnvidos(cadena) {
 
 function envidoPermitido(s, p) {
   var r = s.ronda;
-  if (!enPrimera(s) || yaJugoPrimera(s, p) || r.envido.estado !== "nada") return false;
+  // Se puede cantar mientras no termine la primera baza, aunque ya hayas tirado tu carta
+  // (ej.: sos mano, tirás, y el otro te canta truco sin tirar: el envido va primero).
+  if (!enPrimera(s) || r.envido.estado !== "nada") return false;
   if (s.cfg.flor && r.flor.cantada.length) return false;
   if (r.truco.nivel > 1) return false; // el truco ya fue aceptado
   return true;
