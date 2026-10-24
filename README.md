@@ -1,4 +1,4 @@
-# Truco Accesible
+# Truco
 
 Truco argentino 100% accesible para personas ciegas: se juega con lector de pantalla
 (NVDA, JAWS, VoiceOver, TalkBack), contra la compu o online con amigos, desde la compu,

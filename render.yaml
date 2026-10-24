@@ -1,4 +1,4 @@
-# Servidor del Truco Accesible en Render (plan gratis).
+# Servidor del Truco en Render (plan gratis).
 services:
   - type: web
     name: truco-accesible
