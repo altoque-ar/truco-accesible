@@ -5,7 +5,7 @@ import { arrancar } from "../servidor/servidor.js";
 import { TIEMPOS, borrarTodo } from "../servidor/salas.js";
 import { acciones } from "../src/motor.js";
 
-TIEMPOS.compu = 5; TIEMPOS.siguienteMano = 20; TIEMPOS.reemplazo = 150;
+TIEMPOS.compu = 5; TIEMPOS.mezcla = 0; TIEMPOS.siguienteMano = 20; TIEMPOS.reemplazo = 150;
 
 let srv, URL_WS;
 test.before(async () => { srv = await arrancar(0); URL_WS = `ws://127.0.0.1:${srv.address().port}/ws`; });
