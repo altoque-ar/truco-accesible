@@ -95,19 +95,61 @@ function fuerza(m) {
   var j = m.map(jerarquia).sort(function (a, b) { return b - a; });
   return Math.max(0, Math.min(1, (j[0] + (j[1] || 0) - 12) / 14));
 }
+// ---------------------------------------------------------------- aprender cómo juega cada uno
+// Mira toda la partida: cuántas veces cantó envido con pocos tantos (se ve cuando se quiere),
+// cuántas veces cantó truco con cartas flojas (se ve en lo que tiró) y cuántas veces
+// no quiso el truco. Así la compu se adapta al que miente mucho o al que se achica.
+function habitos(s) {
+  var N = s.cfg.jugadores, ev = s.eventos, H = [];
+  for (var q = 0; q < N; q++) H.push({ envCant: 0, envMiente: 0, trCant: 0, trMiente: 0, leCantaron: 0, noQuiso: 0 });
+  var ronda = null;
+  function cerrar() {
+    if (!ronda) return;
+    for (var q = 0; q < N; q++) {
+      var x = ronda[q];
+      if (x.envido && x.tantos != null) { H[q].envCant++; if (x.tantos <= 24) H[q].envMiente++; }
+      if (x.truco && x.cartas.length >= 2) { H[q].trCant++; if (fuerza(x.cartas) < 0.25) H[q].trMiente++; }
+    }
+  }
+  for (var i = 0; i < ev.length; i++) {
+    var e = ev[i];
+    if (e.tipo === "reparto") { cerrar(); ronda = []; for (var k = 0; k < N; k++) ronda.push({ envido: false, tantos: null, truco: false, cartas: [] }); continue; }
+    if (!ronda) continue;
+    if (e.tipo === "canto" && e.jugador != null) {
+      if (NIVEL_ENV[e.canto]) ronda[e.jugador].envido = true;
+      else if (NIVEL_TRUCO[e.canto]) ronda[e.jugador].truco = true;
+    } else if (e.tipo === "envido" && e.tantos) {
+      e.tantos.forEach(function (x) { ronda[x.jugador].tantos = x.tantos; });
+    } else if (e.tipo === "carta") {
+      ronda[e.jugador].cartas.push(e.carta);
+    } else if (e.tipo === "respuesta" && e.de === "truco") {
+      H[e.jugador].leCantaron++; if (!e.quiero) H[e.jugador].noQuiso++;
+    }
+  }
+  // (la mano en curso no se cierra: todavía no se sabe todo)
+  return H.map(function (h) {
+    return {
+      envMiente: (h.envMiente + 1) / (h.envCant + 5),        // arranca en 0,2
+      trMiente: (h.trMiente + 1) / (h.trCant + 5),           // arranca en 0,2
+      seAchica: h.leCantaron >= 3 ? (h.noQuiso + 1) / (h.leCantaron + 3) : null
+    };
+  });
+}
+
 // Probabilidad de que alguien con esta mano haga lo que hizo.
-function creible(x, m) {
-  var w = 1, e;
-  if (x.envCanto) w *= tramo(envidoDe(m), P_ENV_CANTO[x.envCanto]);
+// "hab" son sus costumbres en esta partida: si miente mucho, se le cree menos.
+function creible(x, m, hab) {
+  var w = 1, e, mEnv = hab ? hab.envMiente : 0.2, mTr = hab ? hab.trMiente : 0.2;
+  if (x.envCanto) w *= Math.max(tramo(envidoDe(m), P_ENV_CANTO[x.envCanto]), mEnv * 0.6);
   else if (x.envPaso) w *= tramo(envidoDe(m), P_ENV_PASO);
   if (x.envNoQuiso) w *= tramo(envidoDe(m), P_ENV_NO);
-  if (x.trucoCanto) { e = fuerza(m); w *= x.trucoCanto === 1 ? 0.18 + 0.82 * Math.pow(e, 1.3) : 0.12 + 0.88 * Math.pow(e, 1.8); }
+  if (x.trucoCanto) { e = fuerza(m); var b = x.trucoCanto === 1 ? Math.min(0.6, mTr * 0.9) : Math.min(0.5, mTr * 0.6); w *= b + (1 - b) * Math.pow(e, x.trucoCanto === 1 ? 1.3 : 1.8); }
   if (x.trucoQuiso) w *= 0.3 + 0.7 * fuerza(m);
   return w;
 }
 
 // ---------------------------------------------------------------- imaginar las cartas de los demás
-var N_TRUCO = 120, N_ENVIDO = 180, N_CARTA = 110, N_FLOR = 120;
+var N_TRUCO = 260, N_ENVIDO = 360, N_CARTA = 240, N_FLOR = 200;
 function mismo(a, b) { return a.n === b.n && a.p === b.p; }
 function companero(s, p) { var N = s.cfg.jugadores; return N < 4 ? null : (p + N / 2) % N; }
 
@@ -134,7 +176,7 @@ function imaginar(s, p, o) {
       if (dichos[q2] != null && envidoDe(mano) !== dichos[q2]) ok = false;
       else if (q2 === comp && !cumpleSenas(mano, o.senas)) ok = false;
       else if (s.cfg.flor && h[q2].flor && !tieneFlor(mano)) ok = false;
-      else if (equipo(q2) !== equipo(p)) w *= creible(h[q2], mano);
+      else if (equipo(q2) !== equipo(p)) w *= creible(h[q2], mano, o.hab && o.hab[q2]);
     }
     if (!ok) continue;
     if (o.azar() < w) return manos;
@@ -155,7 +197,7 @@ function simularTruco(s, p, manos, primera) {
     jugadas: r.jugadas.map(function (js) { return js.map(cl); }),
     bazas: r.bazas.map(function (b) { return { jugadas: b.jugadas.map(function (j) { return { jugador: j.jugador, carta: cl(j.carta) }; }), gano: b.gano, ganador: b.ganador, inicio: b.inicio }; }),
     baza: { jugadas: r.baza.jugadas.map(function (j) { return { jugador: j.jugador, carta: cl(j.carta) }; }), inicio: r.baza.inicio },
-    turno: r.turno, truco: { nivel: 1, dueno: null }, envido: { estado: "terminado", cadena: [] }, flor: { cantada: [], terminada: true },
+    turno: r.turno, truco: { nivel: 1, dueno: null }, envido: { estado: "terminado", cadena: [], cantaron: [] }, flor: { cantada: [], terminada: true },
     pregunta: null, trucoEnEspera: null, terminada: false, ganoRonda: null, puntosRonda: 0
   };
   if (primera) jugar(sim, p, { tipo: "jugar", carta: cl(primera) });
@@ -164,6 +206,25 @@ function simularTruco(s, p, manos, primera) {
     jugar(sim, q, { tipo: "jugar", carta: cartaRapida(sim, q, manoDe(sim, q)) });
   }
   return sim.ronda.ganoRonda === equipo(p);
+}
+// Como chanceTruco, pero además estima si el rival se achica cuando le cantan:
+// devuelve la chance de ganar, la chance de que no quiera y la chance de ganar si quiere.
+function detalleTruco(s, p, o) {
+  var r = s.ronda, N = s.cfg.jugadores, g = 0, f = 0, gAcc = 0, nAcc = 0, lleva = ventaja(s, p);
+  for (var i = 0; i < N_TRUCO; i++) {
+    var manos = imaginar(s, p, o), gano = simularTruco(s, p, manos), mejor = 0;
+    for (var q = 0; q < N; q++) if (equipo(q) !== equipo(p)) {
+      var quedan = manos[q].filter(function (c) { return !r.jugadas[q].some(function (x) { return mismo(x, c); }); });
+      mejor = Math.max(mejor, quedan.length ? fuerza(quedan) + (lleva < 0 ? 0.25 : 0) : 0);
+    }
+    var seVa = mejor < 0.32;
+    if (gano) g++;
+    if (seVa) f++; else { nAcc++; if (gano) gAcc++; }
+  }
+  var fModelo = f / N_TRUCO, fObs = null;
+  for (var q2 = 0; q2 < N; q2++) if (equipo(q2) !== equipo(p) && o.hab && o.hab[q2].seAchica != null) fObs = fObs == null ? o.hab[q2].seAchica : Math.min(fObs, o.hab[q2].seAchica);
+  var fFin = fObs == null ? fModelo * 0.85 : 0.5 * fModelo + 0.5 * fObs;
+  return { pv: g / N_TRUCO, f: fFin, pvAcc: nAcc ? gAcc / nAcc : g / N_TRUCO, obs: fObs != null, fObs: fObs };
 }
 function chanceTruco(s, p, o) {
   var g = 0;
@@ -210,6 +271,7 @@ export function elegir(s, p, opciones) {
   var acc = acciones(s, p), r = s.ronda;
   if (!acc.length) return null;
   o.hist = historia(s);
+  o.hab = habitos(s);
   var q = r.pregunta, enMano = manoDe(s, p);
   var mios = s.puntos[equipo(p)], suyos = s.puntos[1 - equipo(p)], meta = s.cfg.puntos;
   var leQueda = meta - suyos, meQueda = meta - mios;
@@ -275,12 +337,20 @@ export function elegir(s, p, opciones) {
   }
   var trucoT = acc.find(function (a) { return a.tipo === "truco" || a.tipo === "retruco" || a.tipo === "vale_cuatro"; });
   if (trucoT) {
-    var pv = chanceTruco(s, p, o);
+    var d = detalleTruco(s, p, o), pv = d.pv, L = r.truco.nivel;
     var necesito = { truco: 0.64, retruco: 0.72, vale_cuatro: 0.8 }[trucoT.tipo];
     // Si con un punto más gano la partida, el truco no hace falta: me alcanza con ganar la mano.
-    if (meQueda <= 1 && pv >= 0.5) necesito = 0.99;
+    var alcanza = meQueda <= L && pv >= 0.5;
+    if (alcanza) necesito = 0.99;
     if (pv >= necesito) return { tipo: trucoT.tipo };
+    // Contra el que se achica seguido: si la cuenta da, le canto aunque no tenga tanto.
+    if (!alcanza && d.obs && d.fObs > 0.5 && L + 1 < leQueda) {
+      var sinCantar = L * (2 * pv - 1), cantando = d.f * L + (1 - d.f) * (L + 1) * (2 * d.pvAcc - 1);
+      if (cantando > sinCantar + 0.25) return { tipo: trucoT.tipo };
+    }
     var mentir = rivalFlojo(s, p) ? 0.3 : 0.1;
+    if (d.obs && d.fObs < 0.2) mentir *= 0.5;        // al que nunca se achica le miento menos
+    else if (d.obs && d.fObs > 0.5) mentir *= 1.6;   // al que se achica mucho, más
     if (pv >= 0.3 && leQueda > 2 && o.rng() < mentir) return { tipo: trucoT.tipo };
   }
   return { tipo: "jugar", carta: cartaExperta(s, p, o, enMano) };
