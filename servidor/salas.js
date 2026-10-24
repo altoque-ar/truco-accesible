@@ -5,7 +5,7 @@
 import { crearPartida, jugar, siguienteRonda, equipo } from "../src/motor.js";
 import { elegir, senasDe, SENAS } from "../src/rival.js";
 
-export const TIEMPOS = { compu: 900, mezcla: 4500, siguienteMano: 3000, reemplazo: 30000, limpiar: 2 * 60 * 60 * 1000 };
+export const TIEMPOS = { compu: 1300, mezcla: 4500, siguienteMano: 1800, reemplazo: 30000, limpiar: 2 * 60 * 60 * 1000 };
 
 const salas = new Map();
 const azarToken = () => Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
