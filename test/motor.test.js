@@ -205,3 +205,41 @@ test("el mano tira, el otro canta truco sin tirar: el mano todavía puede cantar
   assert.equal(s.ronda.pregunta.tipo, "truco"); // vuelve el truco que estaba esperando
   assert.equal(s.ronda.pregunta.a, mano);
 });
+
+test("flor: no se puede cantar después de que se quiso o no se quiso el envido", () => {
+  const s = crearPartida({ jugadores: 2, puntos: 30, flor: true });
+  poner(s, [[C(4, "copa"), C(5, "oro"), C(6, "basto")], [C(1, "oro"), C(5, "oro"), C(7, "oro")].map((c, i) => i === 1 ? C(4, "oro") : c)]);
+  jugar(s, 0, { tipo: "envido" });
+  jugar(s, 1, { tipo: "quiero" });
+  assert.ok(!acciones(s, 1).some((a) => a.tipo === "flor"), "después del quiero no hay flor");
+  const s2 = crearPartida({ jugadores: 2, puntos: 30, flor: true });
+  poner(s2, [[C(4, "copa"), C(5, "oro"), C(6, "basto")], [C(1, "oro"), C(4, "oro"), C(7, "oro")]]);
+  jugar(s2, 0, { tipo: "envido" });
+  jugar(s2, 1, { tipo: "no_quiero" });
+  assert.ok(!acciones(s2, 1).some((a) => a.tipo === "flor"), "después del no quiero no hay flor");
+});
+
+test("flor: el que cantó envido ya no puede cantar flor; al que le cantan envido sí", () => {
+  const s = crearPartida({ jugadores: 2, puntos: 30, flor: true });
+  poner(s, [[C(1, "oro"), C(4, "oro"), C(7, "oro")], [C(1, "copa"), C(4, "copa"), C(7, "copa")]]);
+  jugar(s, 0, { tipo: "envido" });
+  assert.ok(acciones(s, 1).some((a) => a.tipo === "flor"), "al que le cantaron envido puede contestar flor");
+  jugar(s, 1, { tipo: "envido" });
+  assert.ok(!acciones(s, 0).some((a) => a.tipo === "flor"), "el que cantó envido no puede cantar flor");
+  const s2 = crearPartida({ jugadores: 2, puntos: 30, flor: true });
+  poner(s2, [[C(4, "copa"), C(5, "basto"), C(6, "espada")], [C(1, "oro"), C(4, "oro"), C(7, "oro")]]);
+  jugar(s2, 0, { tipo: "envido" });
+  jugar(s2, 1, { tipo: "flor" });
+  assert.equal(s2.puntos[1], 3); assert.equal(s2.ronda.pregunta, null);
+});
+
+test("flor contra envido con truco en espera: después de la flor vuelve el truco", () => {
+  const s = crearPartida({ jugadores: 2, puntos: 30, flor: true });
+  poner(s, [[C(4, "copa"), C(5, "basto"), C(6, "espada")], [C(1, "oro"), C(4, "oro"), C(7, "oro")]]);
+  jugarCarta(s, 0, C(4, "copa"));
+  jugar(s, 1, { tipo: "truco" });
+  jugar(s, 0, { tipo: "envido" });
+  jugar(s, 1, { tipo: "flor" });
+  assert.equal(s.puntos[1], 3);
+  assert.equal(s.ronda.pregunta && s.ronda.pregunta.tipo, "truco");
+});

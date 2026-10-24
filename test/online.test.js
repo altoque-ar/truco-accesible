@@ -118,7 +118,7 @@ test("si alguien se desconecta, la compu juega por él y cuando vuelve recupera 
   const token = a.sala.token, codigo = a.sala.sala;
   a.ws.close();
   await espera(() => h.avisos.some((t) => /se desconectó/.test(t)));
-  await espera(() => h.avisos.some((t) => /La compu juega por Amigo1/.test(t)), 5000);
+  await espera(() => h.avisos.some((t) => /juega por Amigo1 hasta que vuelva/.test(t)), 5000);
   // la partida sigue
   const antes = h.eventos.length;
   await espera(() => h.eventos.filter((e) => e.tipo === "carta").length > 4);
