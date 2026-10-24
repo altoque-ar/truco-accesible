@@ -2,10 +2,10 @@
 // El servidor tiene la partida de verdad (con todas las cartas). A cada jugador le
 // manda solo lo que puede saber: sus cartas y las que ya se tiraron. Así nadie puede
 // hacer trampa mirando las cartas de los otros, juegue desde la compu, un Android o un iPhone.
-import { crearPartida, jugar, siguienteRonda, equipo } from "../src/motor.js";
+import { crearPartida, jugar, siguienteRonda, equipo, sortearNombres } from "../src/motor.js";
 import { elegir, senasDe, SENAS } from "../src/rival.js";
 
-export const TIEMPOS = { compu: 1300, mezcla: 4500, siguienteMano: 1800, reemplazo: 30000, limpiar: 2 * 60 * 60 * 1000 };
+export const TIEMPOS = { compu: 1300, mezcla: 4500, siguienteMano: 900, reemplazo: 30000, limpiar: 2 * 60 * 60 * 1000 };
 
 const salas = new Map();
 const azarToken = () => Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
@@ -59,7 +59,8 @@ export function desconectado(con) {
   j.reloj = setTimeout(() => {
     if (j.con || !s.partida) return;
     j.reemplazo = true;
-    avisar(s, `La compu juega por ${j.nombre} hasta que vuelva.`, j);
+    j.reemplazoNombre = j.reemplazoNombre || nombreCasa(s);
+    avisar(s, `${j.reemplazoNombre} juega por ${j.nombre} hasta que vuelva.`, j);
     avisarSala(s);
     mover(s);
   }, TIEMPOS.reemplazo);
@@ -147,13 +148,19 @@ function quitar(s, j) {
   avisarSala(s);
 }
 
+// Un nombre de la casa que no esté ya en la mesa (para el que juega por alguien que se fue).
+function nombreCasa(s) {
+  const usados = s.asientos.filter(Boolean).flatMap((x) => [x.nombre, x.reemplazoNombre].filter(Boolean));
+  return sortearNombres(1, usados)[0] || "Uno de la casa";
+}
 function salirSilencioso(j) {
   const s = j.sala;
   if (s.estado === "espera") return quitar(s, j);
   j.fuera = true; j.reemplazo = true; clearTimeout(j.reloj);
   if (j.con) j.con.jugador = null;
   j.con = null;
-  avisar(s, `${j.nombre} se fue. La compu juega por ${j.nombre}.`, j);
+  j.reemplazoNombre = j.reemplazoNombre || nombreCasa(s);
+  avisar(s, `${j.nombre} se fue. ${j.reemplazoNombre} juega por ${j.nombre}.`, j);
   if (!s.asientos.some((x) => x && x.humano && !x.fuera)) return cerrarSala(s);
   if (s.host === j) s.host = s.asientos.find((x) => x && x.humano && !x.fuera);
   avisarSala(s); mover(s);
@@ -171,9 +178,10 @@ function cerrarSala(s) {
 function empezar(s, j) {
   if (s.host !== j) return error(j.con, "La partida la empieza el que creó la mesa.");
   if (s.estado === "jugando") return;
-  // Los lugares vacíos los ocupa la compu.
-  let k = 1;
-  s.asientos = s.asientos.map((x, i) => x || { sala: s, nombre: s.cfg.jugadores === 2 ? "La compu" : "Compu " + k++, asiento: i, humano: false });
+  // Los lugares vacíos los ocupan los de la casa, con nombres sorteados.
+  const libres = s.asientos.filter((x) => !x).length;
+  const nuevos = sortearNombres(libres, s.asientos.filter(Boolean).map((x) => x.nombre));
+  s.asientos = s.asientos.map((x, i) => x || { sala: s, nombre: nuevos.shift() || "Jugador " + (i + 1), asiento: i, humano: false });
   s.estado = "jugando";
   s.partida = crearPartida({ ...s.cfg, nombres: s.asientos.map((x) => x.nombre) });
   s.mezclaHasta = Date.now() + TIEMPOS.mezcla; // mientras suena la mezcla nadie juega
@@ -292,7 +300,7 @@ function avisarSala(s) {
     if (!j || !j.humano || !j.con) return;
     enviarA(j, {
       t: "sala", sala: s.codigo, token: j.token, yo: j.asiento, host: s.host === j, hostNombre: s.host ? s.host.nombre : null, estado: s.estado, cfg: s.cfg,
-      asientos: s.asientos.map((x) => x ? { nombre: x.nombre, compu: !x.humano || x.reemplazo, conectado: !x.humano || !!x.con, fuera: !!x.fuera } : null)
+      asientos: s.asientos.map((x) => x ? { nombre: x.nombre, compu: !x.humano || x.reemplazo, reemplazo: x.humano && x.reemplazo ? x.reemplazoNombre || null : null, conectado: !x.humano || !!x.con, fuera: !!x.fuera } : null)
     });
   });
 }
