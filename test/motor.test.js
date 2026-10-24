@@ -189,3 +189,19 @@ test("señas: el compañero de la compu quiere el truco si le avisaste cartas bu
   assert.equal(elegir(s, 2, { rng: nunca, senas: ["nada"] }).tipo, "no_quiero");
   assert.notEqual(elegir(s, 2, { rng: nunca, senas: ["ancho_espada", "ancho_basto"] }).tipo, "no_quiero");
 });
+
+test("el mano tira, el otro canta truco sin tirar: el mano todavía puede cantar envido", () => {
+  const s = crearPartida({ jugadores: 2 }, rngFijo(3));
+  const mano = s.ronda.turno, pie = 1 - mano;
+  const m = [];
+  m[mano] = [C(7, "oro"), C(6, "oro"), C(4, "copa")]; m[pie] = [C(1, "espada"), C(5, "basto"), C(2, "copa")];
+  poner(s, m);
+  jugarCarta(s, mano, C(4, "copa"));
+  jugar(s, pie, { tipo: "truco" });
+  const tipos = acciones(s, mano).map((a) => a.tipo);
+  assert.ok(tipos.includes("envido"), "debería poder cantar envido: " + tipos);
+  jugar(s, mano, { tipo: "envido" });
+  jugar(s, pie, { tipo: "quiero" });
+  assert.equal(s.ronda.pregunta.tipo, "truco"); // vuelve el truco que estaba esperando
+  assert.equal(s.ronda.pregunta.a, mano);
+});
